@@ -113,6 +113,13 @@ INSTRUCTOR_PATH_TOKEN=<your-secret-segment>
 It is served on a secret path and kept entirely separate from the student UI.
 See `docs/vuln-map.md` for the written answer key.
 
+## DevOps lesson: 3-tier EC2 deployment
+
+`devops-3tier/` is a **separate, clean** app (ShopLite) for teaching how to deploy a
+frontend, backend and database on three EC2 instances with systemd services.
+It is safe to deploy and is not part of the vulnerable lab. See
+[`devops-3tier/README.md`](devops-3tier/README.md).
+
 ## Docs
 
 - `docs/vuln-map.md` — instructor answer key: which feature hides which bug.
