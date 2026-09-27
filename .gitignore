@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# build output
+frontend/dist/
+backend/dist/
+
+# env
+.env
+*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# uploads (runtime user content) — keep the dir, ignore contents
+uploads/*
+!uploads/.gitkeep
+
+# OS
+.DS_Store
+
+# NOTE: .git exposure lab is served intentionally from a *copied* snapshot at
+# runtime (see backend), NOT from this real repo's .git. Nothing secret here.

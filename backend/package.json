@@ -1,0 +1,20 @@
+{
+  "name": "shophunt-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ShopHunt training-target API (intentionally vulnerable — lab use only)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "multer": "^1.4.5-lts.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5"
+  }
+}

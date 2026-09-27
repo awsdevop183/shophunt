@@ -1,0 +1,120 @@
+# ============================================================================
+# ShopHunt — intentionally vulnerable training target
+# ============================================================================
+# ⚠️  ISOLATED LAB USE ONLY. Do NOT expose on the public internet or run on a
+#     production / cloud VM without blocking the real metadata service.
+#
+# ISOLATION MODEL (why this is safe to run locally):
+#   * All published ports bind to 127.0.0.1 only — nothing is reachable off-host.
+#   * `appnet` and `metadata_net` are declared `internal: true`, so containers
+#     have NO route to the real internet or to the host's real link-local
+#     169.254.169.254. The ONLY 169.254.169.254 that exists in this lab is the
+#     mock `metadata` container on the isolated `metadata_net` subnet.
+#   * The mock `metadata` service is NOT published to the host. It is reachable
+#     only server-side (i.e. via the SSRF lab), exactly like a real IMDS.
+#   * The backend additionally PINS the metadata IP to the mock in code and
+#     refuses other link-local targets (see backend SSRF guard), so even if
+#     someone mistakenly runs this on a real EC2 instance the SSRF can never
+#     reach the genuine 169.254.169.254.
+# ============================================================================
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-lab-only}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-shophunt}
+      MYSQL_USER: ${MYSQL_USER:-shophunt}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-shophunt-lab-only}
+    # Bind to localhost only — for optional direct DB inspection during lessons.
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - appnet
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root-lab-only}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  metadata:
+    # Mock cloud metadata service (fake IMDS). Fully self-contained: serves
+    # FAKE IAM credentials and a fake internal cloud API. Never touches AWS.
+    build:
+      context: ./metadata
+    restart: unless-stopped
+    # Intentionally NOT published to the host: reachable only from inside the
+    # docker network, i.e. via the SSRF lab — just like a real metadata service.
+    networks:
+      metadata_net:
+        ipv4_address: 169.254.169.254
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${MYSQL_USER:-shophunt}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-shophunt-lab-only}
+      DB_NAME: ${MYSQL_DATABASE:-shophunt}
+      DB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-lab-only}
+      JWT_SECRET: ${JWT_SECRET:-secret}
+      INSTRUCTOR_MODE: ${INSTRUCTOR_MODE:-off}
+      INSTRUCTOR_PATH_TOKEN: ${INSTRUCTOR_PATH_TOKEN:-change-me-instructor-2f9c}
+      METADATA_MOCK_HOST: ${METADATA_MOCK_HOST:-metadata}
+      METADATA_MOCK_IP: ${METADATA_MOCK_IP:-169.254.169.254}
+      BACKEND_PORT: ${BACKEND_PORT:-4000}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - appnet
+      # backend is the only app service on metadata_net, so SSRF from backend
+      # can reach the mock at 169.254.169.254 (and nothing external).
+      - metadata_net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:4000}
+        VITE_ANALYTICS_KEY: ${VITE_ANALYTICS_KEY:-sh_live_pk_9f2b7c1e5a4d0e8f_TRAININGONLY}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+  uploads_data:
+
+networks:
+  # Main app network. internal:true => no outbound route to the real internet.
+  appnet:
+    driver: bridge
+    internal: true
+  # Isolated network that hosts the mock metadata service at a link-local-style
+  # address. internal:true guarantees this subnet cannot reach the real
+  # internet or the host's genuine link-local range.
+  metadata_net:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 169.254.0.0/16
+          gateway: 169.254.0.1
