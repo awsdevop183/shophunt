@@ -56,8 +56,10 @@ export default function Admin() {
             <div className="card stack" style={{ width: 360 }}>
               <strong>{ticket.subject}</strong>
               <div className="muted">From: {ticket.email || `user ${ticket.user_id}`}</div>
-              {/* Clean baseline: ticket body rendered as plain text. */}
-              <div>{ticket.body}</div>
+              {/* VULN (blind XSS): ticket body rendered as raw HTML inside the
+                  admin panel. A payload submitted via the public support form
+                  fires when an admin (or the admin viewer bot) opens the ticket. */}
+              <div dangerouslySetInnerHTML={{ __html: ticket.body }} />
             </div>
           )}
         </div>

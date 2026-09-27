@@ -4,13 +4,18 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../auth');
 const { seed } = require('../seed');
+const { clearCaptures } = require('../state');
 const config = require('../config');
 const fs = require('fs');
 const path = require('path');
 
 const router = express.Router();
 
-router.use(requireAuth, requireRole('admin'));
+// VULN (broken access control): these admin routes require only a valid login,
+// NOT the admin role. Any authenticated customer can call /api/admin/* directly
+// (the admin panel is merely hidden in the UI). The `requireRole('admin')` that
+// belongs here has been removed.
+router.use(requireAuth /* , requireRole('admin') */);
 
 router.get('/users', async (req, res, next) => {
   try {
@@ -39,6 +44,7 @@ router.get('/tickets/:id', async (req, res, next) => {
 router.post('/reset-lab', async (req, res, next) => {
   try {
     await seed({ reset: true });
+    clearCaptures();
     // Clear uploads dir (keep the directory + .gitkeep).
     try {
       const dir = config.uploadDir;

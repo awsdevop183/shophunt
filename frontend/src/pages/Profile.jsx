@@ -36,10 +36,15 @@ export default function Profile() {
     try { const d = await api.upload('/api/uploads/avatar', fd); setMe({ ...me, avatar_url: d.avatar_url }); setMsg('Avatar uploaded.'); }
     catch (e) { setErr(e.message); }
   }
+  const [importResult, setImportResult] = useState(null);
   async function importAvatar(e) {
-    e.preventDefault(); setMsg(''); setErr('');
+    e.preventDefault(); setMsg(''); setErr(''); setImportResult(null);
     try { const d = await api.post('/api/uploads/avatar/import', { url: importUrl }); setMe({ ...me, avatar_url: d.avatar_url }); setMsg('Avatar imported.'); }
-    catch (e) { setErr(e.message); }
+    catch (e) {
+      setErr(e.message);
+      // Non-image responses come back with a body preview (SSRF result).
+      if (e.data && (e.data.preview || e.data.content_type)) setImportResult(e.data);
+    }
   }
 
   if (!me) return <div className="container"><p className="muted">Loading…</p></div>;
@@ -64,6 +69,12 @@ export default function Profile() {
             </div>
             <button className="btn secondary" type="submit" style={{ width: '100%' }}>Import</button>
           </form>
+          {importResult && (
+            <div className="card" style={{ width: '100%', background: '#f7f7fb' }}>
+              <div className="muted" style={{ fontSize: 12 }}>Fetch response ({importResult.content_type || 'unknown'}):</div>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0, maxHeight: 220, overflow: 'auto' }}>{importResult.preview}</pre>
+            </div>
+          )}
           <span className="badge">{me.role}</span>
         </div>
 

@@ -6,7 +6,7 @@ const { requireAuth, requireRole } = require('../auth');
 
 const router = express.Router();
 
-router.get('/products', requireAuth, requireRole('seller', 'admin'), async (req, res, next) => {
+router.get('/products', requireAuth /* VULN(BAC): role check removed */, async (req, res, next) => {
   try {
     const rows = await db.query(
       'SELECT id, title, price_cents, category, stock, rating_avg, created_at FROM products WHERE seller_id = ? ORDER BY id DESC',
@@ -16,7 +16,7 @@ router.get('/products', requireAuth, requireRole('seller', 'admin'), async (req,
   } catch (e) { next(e); }
 });
 
-router.post('/products', requireAuth, requireRole('seller', 'admin'), async (req, res, next) => {
+router.post('/products', requireAuth /* VULN(BAC): role check removed */, async (req, res, next) => {
   try {
     const { title, description, price_cents, category, image_url, stock } = req.body || {};
     if (!title || price_cents == null) return res.status(400).json({ error: 'title and price_cents required' });
@@ -29,7 +29,7 @@ router.post('/products', requireAuth, requireRole('seller', 'admin'), async (req
 });
 
 // Aggregate sales for the seller's own products.
-router.get('/sales', requireAuth, requireRole('seller', 'admin'), async (req, res, next) => {
+router.get('/sales', requireAuth /* VULN(BAC): role check removed */, async (req, res, next) => {
   try {
     const rows = await db.query(
       `SELECT oi.product_id, oi.title,

@@ -4,6 +4,16 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 // Hardcoded "analytics" key shipped in the bundle (info-disclosure recon lab).
 export const ANALYTICS_KEY = import.meta.env.VITE_ANALYTICS_KEY || 'sh_live_pk_dev';
 
+// VULN (info disclosure): internal build metadata hardcoded in the frontend
+// bundle (and thus the source map). A real product would never ship these.
+export const BUILD_META = {
+  internalAdminApiKey: 'shophunt_internal_2c9f7b13a8e04d1f_TRAININGONLY',
+  legacyApiBase: '/api/v1',
+  featureFlags: { instructorHint: 'set INSTRUCTOR_MODE=on; secret path under /api/instructor/<token>' },
+};
+// keep it in the bundle (and expose for the recon lab)
+if (typeof window !== 'undefined') { window.__SHOPHUNT_BUILD__ = { ANALYTICS_KEY, ...BUILD_META }; }
+
 export function getToken() { return localStorage.getItem('sh_token') || ''; }
 export function setToken(t) { t ? localStorage.setItem('sh_token', t) : localStorage.removeItem('sh_token'); }
 

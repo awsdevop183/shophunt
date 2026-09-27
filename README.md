@@ -75,10 +75,23 @@ Then open:
 Everything binds to `127.0.0.1` only. The mock metadata service is intentionally
 **not** published to the host.
 
-> **Build progress:** the project is built in reviewable phases. Phase 1 ships the
-> scaffold, docker-compose, and the mock metadata service. The full store and the
-> embedded vulnerabilities land in subsequent phases. Until then the frontend
-> shows a placeholder and the backend exposes a health endpoint.
+### Seeded lab accounts (FAKE)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@shophunt.local` | `Admin123!` |
+| Seller | `nadia.seller@shophunt.local` | `Seller123!` |
+| Seller | `raj.seller@shophunt.local` | `Seller123!` |
+| Customer | `alice@shophunt.local` | `Passw0rd!` |
+| Customer | `bob@shophunt.local` | `Passw0rd!` |
+| Customer | `carol@shophunt.local` | `Passw0rd!` |
+
+Students normally start by signing up their own account — these are for
+instructors and for demonstrating IDOR/account-takeover chains.
+
+> The app looks and behaves like a normal store. **Vulnerabilities are hidden
+> inside real features** — there are no "vuln here" labels in the student UI. The
+> full answer key is in `docs/vuln-map.md` and in instructor mode.
 
 ## Reset the lab
 

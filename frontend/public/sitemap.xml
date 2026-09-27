@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>/</loc></url>
+  <url><loc>/login</loc></url>
+  <url><loc>/signup</loc></url>
+  <url><loc>/support</loc></url>
+  <url><loc>/profile</loc></url>
+  <url><loc>/orders</loc></url>
+  <url><loc>/seller</loc></url>
+  <!-- internal / deprecated (should not be indexed) -->
+  <url><loc>/admin</loc></url>
+  <url><loc>/api/v1/</loc></url>
+  <url><loc>/internal/status</loc></url>
+</urlset>

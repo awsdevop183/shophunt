@@ -55,8 +55,9 @@ export default function Product() {
               <strong>{r.author_name}</strong>
               <span className="rating">{stars(r.rating)}</span>
             </div>
-            {/* Clean baseline: reviews rendered as plain text. */}
-            <div>{r.body}</div>
+            {/* VULN (stored XSS): review body is rendered as raw HTML. A review
+                containing <img src=x onerror=...> executes for every visitor. */}
+            <div dangerouslySetInnerHTML={{ __html: r.body }} />
           </div>
         ))}
         {!reviews.length && <p className="muted">No reviews yet.</p>}

@@ -1,18 +1,31 @@
 'use strict';
-// Clean JWT auth baseline. (A later phase intentionally weakens verification for
-// the JWT lab; this baseline is the "correct" reference implementation.)
+/* ============================================================================
+ * JWT auth — INTENTIONALLY WEAKENED for the JWT lab.
+ *  - weak, guessable secret (default "secret", from env)
+ *  - tokens never expire (no exp claim)
+ *  - verification accepts alg:"none" (unsigned tokens) AND the weak HS256 secret
+ * The clean reference implementation lived in Phase 2's git history.
+ * ========================================================================== */
 const jwt = require('jsonwebtoken');
 const config = require('./config');
 
+// No expiry (VULN): tokens are valid forever.
 function signToken(user) {
   return jwt.sign(
     { sub: user.id, email: user.email, role: user.role, name: user.name },
     config.jwtSecret,
-    { expiresIn: '2h', algorithm: 'HS256' }
+    { algorithm: 'HS256' } // note: no expiresIn
   );
 }
 
-// Extracts a bearer token from Authorization header or `token` cookie.
+// Also sets an auth cookie so cookie-authenticated (CSRF-able) flows work.
+function issueSession(res, user) {
+  const token = signToken(user);
+  // VULN: not httpOnly, permissive SameSite -> assists XSS token theft + CSRF.
+  res.cookie('token', token, { httpOnly: false, sameSite: 'lax', path: '/' });
+  return token;
+}
+
 function getToken(req) {
   const h = req.headers.authorization || '';
   if (h.startsWith('Bearer ')) return h.slice(7);
@@ -20,29 +33,36 @@ function getToken(req) {
   return null;
 }
 
-// Require a valid token; attaches req.user.
+// INSECURE verification (the heart of the JWT lab).
+function verifyInsecure(token) {
+  const parts = String(token).split('.');
+  if (parts.length < 2) throw new Error('malformed token');
+  const header = JSON.parse(Buffer.from(parts[0], 'base64').toString('utf8'));
+
+  // VULN #1: accept alg:"none" — trust the payload with no signature at all.
+  if (header.alg && header.alg.toLowerCase() === 'none') {
+    return JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+  }
+  // VULN #2: weak secret + no expiry check; accept HS* algorithms.
+  return jwt.verify(token, config.jwtSecret, {
+    algorithms: ['HS256', 'HS384', 'HS512'],
+    ignoreExpiration: true,
+  });
+}
+
 function requireAuth(req, res, next) {
   const token = getToken(req);
   if (!token) return res.status(401).json({ error: 'authentication required' });
-  try {
-    req.user = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
-    next();
-  } catch (e) {
-    return res.status(401).json({ error: 'invalid token' });
-  }
+  try { req.user = verifyInsecure(token); next(); }
+  catch (e) { return res.status(401).json({ error: 'invalid token' }); }
 }
 
-// Optional auth: attaches req.user if a valid token is present, else continues.
 function optionalAuth(req, res, next) {
   const token = getToken(req);
-  if (token) {
-    try { req.user = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }); }
-    catch (e) { /* ignore */ }
-  }
+  if (token) { try { req.user = verifyInsecure(token); } catch (e) { /* ignore */ } }
   next();
 }
 
-// Require a specific role.
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'authentication required' });
@@ -51,4 +71,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { signToken, requireAuth, optionalAuth, requireRole, getToken };
+module.exports = { signToken, issueSession, requireAuth, optionalAuth, requireRole, getToken, verifyInsecure };

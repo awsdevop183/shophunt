@@ -7,20 +7,24 @@ const { requireAuth } = require('../auth');
 const router = express.Router();
 
 // GET /api/products?search=&category=&min=&max=&sort=
+// VULN (SQL injection): `search` is concatenated directly into the WHERE clause,
+// giving error-based, boolean-blind, time-based and UNION-based injection. An
+// undocumented `order` parameter is also concatenated into ORDER BY (hidden
+// parameter for the recon lab). Other filters remain parameterized.
 router.get('/', async (req, res, next) => {
   try {
-    const { search, category, min, max, sort } = req.query;
+    const { search, category, min, max, sort, order } = req.query;
     const where = [];
-    const params = [];
-    if (search) { where.push('(title LIKE ? OR description LIKE ?)'); params.push(`%${search}%`, `%${search}%`); }
-    if (category) { where.push('category = ?'); params.push(category); }
-    if (min) { where.push('price_cents >= ?'); params.push(parseInt(min, 10) || 0); }
-    if (max) { where.push('price_cents <= ?'); params.push(parseInt(max, 10) || 0); }
+    if (search) where.push(`(p.title LIKE '%${search}%' OR p.description LIKE '%${search}%')`);
+    if (category) where.push(`p.category = '${category}'`);
+    if (min) where.push(`p.price_cents >= ${parseInt(min, 10) || 0}`);
+    if (max) where.push(`p.price_cents <= ${parseInt(max, 10) || 0}`);
 
-    let orderBy = 'created_at DESC';
-    if (sort === 'price_asc') orderBy = 'price_cents ASC';
-    else if (sort === 'price_desc') orderBy = 'price_cents DESC';
-    else if (sort === 'rating') orderBy = 'rating_avg DESC';
+    let orderBy = 'p.created_at DESC';
+    if (sort === 'price_asc') orderBy = 'p.price_cents ASC';
+    else if (sort === 'price_desc') orderBy = 'p.price_cents DESC';
+    else if (sort === 'rating') orderBy = 'p.rating_avg DESC';
+    if (order) orderBy = order; // undocumented param -> ORDER BY injection
 
     const sql =
       `SELECT p.id, p.title, p.description, p.price_cents, p.category, p.image_url,
@@ -28,7 +32,7 @@ router.get('/', async (req, res, next) => {
          FROM products p JOIN users u ON u.id = p.seller_id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY ${orderBy} LIMIT 100`;
-    const rows = await db.query(sql, params);
+    const rows = await db.raw(sql);
     res.json({ products: rows });
   } catch (e) { next(e); }
 });

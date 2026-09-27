@@ -3,9 +3,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { signToken } = require('../auth');
+const { signToken, issueSession } = require('../auth');
 
 const router = express.Router();
+
+// NOTE (rate-limit lab): login and the reset endpoints below have NO throttling
+// or lockout, so 6-digit OTPs and passwords are brute-forceable.
 
 router.post('/signup', async (req, res, next) => {
   try {
@@ -23,7 +26,7 @@ router.post('/signup', async (req, res, next) => {
     );
     const user = { id: result.insertId, email, name, role: 'customer' };
     await db.query('INSERT INTO carts (user_id) VALUES (?)', [user.id]);
-    return res.status(201).json({ token: signToken(user), user });
+    return res.status(201).json({ token: issueSession(res, user), user });
   } catch (e) { next(e); }
 });
 
@@ -32,14 +35,18 @@ router.post('/login', async (req, res, next) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
 
-    const rows = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    // VULN (SQL injection): the email is concatenated straight into the query.
+    // Error-based and blind SQLi are possible here; DB errors surface via the
+    // verbose error handler. Password is still bcrypt-checked, so this is an
+    // extraction primitive (the /api/v1 login below additionally bypasses auth).
+    const rows = await db.raw(`SELECT * FROM users WHERE email = '${email}'`);
     const user = rows[0];
     if (!user) return res.status(401).json({ error: 'invalid credentials' });
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'invalid credentials' });
 
     const pub = { id: user.id, email: user.email, name: user.name, role: user.role };
-    return res.json({ token: signToken(pub), user: pub });
+    return res.json({ token: issueSession(res, pub), user: pub });
   } catch (e) { next(e); }
 });
 

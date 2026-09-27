@@ -36,9 +36,11 @@ router.post('/items', requireAuth, async (req, res, next) => {
     const productId = parseInt(req.body?.product_id, 10);
     const quantity = parseInt(req.body?.quantity, 10);
     if (!productId) return res.status(400).json({ error: 'product_id required' });
-    // Clean baseline: reject non-positive quantities.
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      return res.status(400).json({ error: 'quantity must be a positive integer' });
+    // VULN (business logic): negative and zero quantities are accepted. A
+    // negative-quantity line item produces a negative subtotal, which can zero
+    // out or reverse an order total at checkout.
+    if (!Number.isInteger(quantity)) {
+      return res.status(400).json({ error: 'quantity must be an integer' });
     }
     const prod = await db.query('SELECT id FROM products WHERE id = ?', [productId]);
     if (!prod.length) return res.status(404).json({ error: 'product not found' });
@@ -57,8 +59,9 @@ router.post('/items', requireAuth, async (req, res, next) => {
 router.patch('/items/:itemId', requireAuth, async (req, res, next) => {
   try {
     const quantity = parseInt(req.body?.quantity, 10);
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      return res.status(400).json({ error: 'quantity must be a positive integer' });
+    // VULN (business logic): no lower bound — negative quantities allowed.
+    if (!Number.isInteger(quantity)) {
+      return res.status(400).json({ error: 'quantity must be an integer' });
     }
     const cartId = await getOrCreateCart(req.user.sub);
     // Ownership: item must belong to this user's cart.

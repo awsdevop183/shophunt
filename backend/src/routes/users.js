@@ -17,15 +17,17 @@ router.get('/me', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Update own profile. Clean baseline: only a safe allowlist of fields; role and
-// email-uniqueness handled server-side. (A later phase adds mass-assignment.)
+// Update own profile.
+// VULN (mass assignment): the update accepts ANY column the client sends,
+// including `role`. A customer can PATCH {"role":"admin"} and the app honors it
+// (privilege escalation). The UI only ever sends name/bio/phone/avatar_url.
 router.patch('/me', requireAuth, async (req, res, next) => {
   try {
-    const allowed = ['name', 'bio', 'phone', 'avatar_url'];
+    const updatable = ['name', 'bio', 'phone', 'avatar_url', 'role', 'email']; // role/email should NOT be here
     const sets = [];
     const params = [];
-    for (const key of allowed) {
-      if (req.body && req.body[key] !== undefined) { sets.push(`${key} = ?`); params.push(req.body[key]); }
+    for (const key of Object.keys(req.body || {})) {
+      if (updatable.includes(key)) { sets.push(`${key} = ?`); params.push(req.body[key]); }
     }
     if (!sets.length) return res.status(400).json({ error: 'no updatable fields provided' });
     params.push(req.user.sub);
@@ -35,7 +37,22 @@ router.patch('/me', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Change email (state-changing). Clean baseline requires auth.
+// GET /api/users/:id
+// VULN (IDOR): returns any user's full record (email, phone, role, ...) with no
+// authorization check tying :id to the caller.
+router.get('/:id', async (req, res, next) => {
+  try {
+    const rows = await db.query(`SELECT ${PUBLIC_FIELDS} FROM users WHERE id = ?`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'user not found' });
+    res.json({ user: rows[0] });
+  } catch (e) { next(e); }
+});
+
+// Change email (state-changing).
+// VULN (CSRF): authenticated via the non-httpOnly `token` cookie, with no CSRF
+// token, no Origin/Referer check, and permissive CORS (credentials + reflected
+// origin). A cross-site page can force a victim's email change. Also accepts
+// urlencoded bodies, so a plain auto-submitting HTML form works.
 router.post('/me/email', requireAuth, async (req, res, next) => {
   try {
     const { email } = req.body || {};

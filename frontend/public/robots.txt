@@ -1,0 +1,9 @@
+# ShopHunt
+User-agent: *
+Disallow: /admin
+Disallow: /api/v1/
+Disallow: /internal/
+Disallow: /.git/
+Disallow: /backups/
+Disallow: /instructor
+Sitemap: /sitemap.xml

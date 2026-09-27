@@ -5,6 +5,7 @@ const app = require('./app');
 const db = require('./db');
 const config = require('./config');
 const { seed } = require('./seed');
+const adminBot = require('./botAdmin');
 
 async function waitForDb(retries = 30) {
   for (let i = 0; i < retries; i++) {
@@ -24,6 +25,7 @@ async function waitForDb(retries = 30) {
     app.listen(config.port, '0.0.0.0', () => {
       console.log(`[shophunt-backend] listening on :${config.port}`);
     });
+    adminBot.start(); // blind-XSS admin viewer simulation
   } catch (e) {
     console.error('[startup] fatal:', e.message);
     process.exit(1);

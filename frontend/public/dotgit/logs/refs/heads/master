@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 fc8e541d33bff9e791e0c642f21ed53846f1292a ShopHunt DevOps <devops@shophunt.local> 1790479291 +0000	commit (initial): add production config and legacy notes
+fc8e541d33bff9e791e0c642f21ed53846f1292a a7d86a08f25c6c9ab6f5aade2a5198c412ca59a1 ShopHunt DevOps <devops@shophunt.local> 1790479291 +0000	commit: remove secrets.yml from tree (oops: still in git history)
